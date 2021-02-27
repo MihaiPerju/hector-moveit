@@ -10,3 +10,6 @@
 	path = src/hector_models
 	url = https://github.com/tu-darmstadt-ros-pkg/hector_models.git
 	branch = kinetic-devel
+[submodule "src/hector_despot"]
+	path = src/hector_despot
+	url = git@github.com:MihaiPerju/hector_despot.git
