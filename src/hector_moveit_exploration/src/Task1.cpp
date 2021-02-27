@@ -1,4 +1,5 @@
 #include <Explorer.h>
+#include <vector> 
 
 Quadrotor::Quadrotor(ros::NodeHandle& nh) : trajectory_client("/action/trajectory",true)
 {
@@ -316,41 +317,58 @@ void Quadrotor::run()
             rate.sleep();
         bool success = false;
         findFrontier();
-        
+
+        vector<vector<double>> goals{ 
+            { 4.507, -1.502, 2.000 }, 
+            { -4.4379, -1.4451, 2.000 },
+            { 4.5097, 6.4118, 2.000 },
+            { -4.4899, 5.4433, 2.000 },
+        };
         do{
-            if(frontiers.empty()) break;
-            geometry_msgs::Pose _goal = frontiers.front().second;
-            std::cout<<_goal<<"\n";
-            frontiers.pop();
-            explored.push_back(_goal); // Valid or not, make sure that will not be offered as candidate again.
-            bool invalid = false;
-            for(int i=0;i<invalid_poses.size();i++){
-                
-                if(sqrt(pow(invalid_poses[i].position.x - _goal.position.x,2) + pow(invalid_poses[i].position.y - _goal.position.y,2) 
-                    + pow(invalid_poses[i].position.z - _goal.position.z,2)) < 1.5){
-                    invalid = true;
-                    invalid_poses.push_back(_goal);
-                    break;
+            geometry_msgs::Pose _goal;
+
+            // default values for the orientation
+            _goal.orientation.x=0;
+            _goal.orientation.y=0;
+            _goal.orientation.z=0;
+            _goal.orientation.w=1;
+
+            for(int i=0;i<goals.size();i++){
+                _goal.position.x=goals[i][0];
+                _goal.position.y=goals[i][1];
+                _goal.position.z=goals[i][2];
+            
+                std::cout<<_goal<<'\n';
+
+                // position: 
+                //     x: 7.375
+                //     y: 3.625
+                //     z: 1.625
+                // orientation: 
+                //     x: 0
+                //     y: 0
+                //     z: 0
+                //     w: 1
+
+                success = go(_goal);
+                if(!success) invalid_poses.push_back(_goal);
+                else{
+                    double xspan = XMAX-XMIN;
+                    double yspan = YMAX-YMIN;
+                    int xpatch = (_goal.position.x - XMIN)*GRID/xspan;
+                    int ypatch = (_goal.position.y - YMIN)*GRID/yspan;
+                    patches[xpatch][ypatch]++;
+
+                    geometry_msgs::Point msg;
+                    msg.x = xpatch;
+                    msg.y = ypatch;
+                    gui_ack.publish(msg);
                 }
+                ros::spinOnce();
+                rate.sleep();
+            
             }
-            if(invalid) continue;
 
-            success = go(_goal);
-            if(!success) invalid_poses.push_back(_goal);
-            else{
-                double xspan = XMAX-XMIN;
-                double yspan = YMAX-YMIN;
-                int xpatch = (_goal.position.x - XMIN)*GRID/xspan;
-                int ypatch = (_goal.position.y - YMIN)*GRID/yspan;
-                patches[xpatch][ypatch]++;
-
-                geometry_msgs::Point msg;
-                msg.x = xpatch;
-                msg.y = ypatch;
-                gui_ack.publish(msg);
-            }
-            ros::spinOnce();
-            rate.sleep();
         }while(!success);
     }
 }
